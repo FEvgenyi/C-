@@ -1,0 +1,323 @@
+//Реализовать простейший файловый менеджер с использованием ООП(классы,	наследование и так далее).должен иметь такие возможности :	
+//¦¦ показывать содержимое дисков;
+//¦¦ создавать папки / файлы;
+//¦¦ удалять папки / файлы;
+//¦¦ переименовывать папки / файлы;
+//¦¦ копировать / переносить папки / файлы;
+//¦¦ вычислять размер папки / файла;
+//¦¦ производить поиск по маске(с поиском по подпапкам) и так далее.
+#include <Windows.h>
+#include <ctime>
+#include <fstream>
+#include <filesystem>
+#include <direct.h>
+#include <stdio.h>//Здесь находятся функции переименования и удаления
+#include <io.h>//Здесь находятся функции для поиска файлов
+#include <string.h>
+#include <iostream>
+#include <conio.h>
+#include <iomanip>
+#include <vector>
+using namespace std;
+HANDLE hConsole;
+class IFileManager {	
+public:	
+	     IFileManager() {};	
+		virtual ~IFileManager() {};
+		//IFileManager 
+		//virtual void operator =(const FileManager& other) {};
+
+		virtual void CreateFile()=0;
+		virtual void RenameFile()=0;
+		virtual void DeleteFile()=0;
+		virtual void CopyFile()=0;
+		virtual void Dir(string HDD)=0;
+		virtual void FindDir()=0;
+		virtual void RenameDirectory()=0;
+		virtual void DeleteDirectory()=0;
+		virtual void CreateDirectory()=0;
+
+};
+class FileManager:public IFileManager {
+private:
+	string Name;
+	string oldName;
+	string HDD;	
+public:
+	FileManager() {
+		cout << "Default Constructor" << endl;
+		/*Name = NULL;
+		oldName = NULL;///так не работает
+		HDD = NULL;*/
+		//string oldName=nullptr;
+		//char *oldName;
+		//char *Name;
+	}
+	FileManager(string oldName) {
+		cout << "Parametr Constructor" << endl;
+		this->oldName = oldName;
+		this->Name = nullptr;
+		this->HDD =nullptr;
+	}
+	FileManager(string oldName, string Name) {
+		cout << "Parametr Constructor" << endl;
+		this->oldName = oldName;
+		this->Name = Name;
+		this->HDD = nullptr;
+	}
+	FileManager(string oldName, string Name, string HDD) {
+		cout << "Parametr Constructor" << endl;		
+		this->oldName = oldName;
+		this->Name  = Name;
+		this->HDD = HDD;
+	}
+	~FileManager() {
+		cout << "DESTRUCTOR" << endl;	//delete oldName; delete Name;  ошибка тоже
+	}
+	FileManager(const FileManager& other) {
+		cout << "COPY Constructor" << endl; 
+		oldName = other.oldName;
+		Name = other.Name;
+		HDD = other.HDD;
+		
+	}
+	FileManager operator = (const FileManager& other) {                                            //оператор присваивания
+		oldName = other.oldName;
+		Name = other.Name;
+		HDD = other.HDD;
+		return *this;
+	}
+    /////////////////////////////////////
+    void CreateFile() {
+		cout << "Enter file name:";
+		cin >> Name;
+		char buf1[255];	strcpy_s(buf1, Name.c_str());		
+		ofstream source(buf1, ios::binary);
+		source.close();
+	}
+	void RenameFile()//Переименовать существующий файл
+	{		
+		cout << "Enter old name:";//В одной переменной запомним существующее имя (oldName),
+		cin >> oldName;
+		cout << "Enter new name:";//А в другой новое имя(Name)
+		cin >> Name;
+		char buf[255];strcpy_s(buf, oldName.c_str());
+		char buf1[255];strcpy_s(buf1, Name.c_str());		
+		if (rename(buf, buf1) != 0)//Произведем переименование и проверку результата
+			cout << "Error!\n Couldn't rename file. Check old and new filename...\n\n";
+		else cout << "Ok...\n\n";
+	}	
+	void DeleteFile()//Удалить существующий файл
+	{
+		cout << "Enter file name:";
+		cin >> Name;
+		char buf1[255];	strcpy_s(buf1, Name.c_str());
+		
+		if (remove(buf1) != 0)//Удаляем файл и проверяем результат
+			cout << "Error!\n Couldn't remove file.	Check filename...\n";
+		else
+			cout << "Ok...\n";
+	}
+	void CopyFile() {
+		clock_t start, end;
+		start = clock();
+		cout << "Enter file name:";
+		cin >> Name;
+		char buf1[255];	strcpy_s(buf1, Name.c_str());
+		ifstream source(buf1, ios::binary);
+
+		cout << "Which way to copying file :";
+		cin >> oldName;
+		char buf[255];	strcpy_s(buf, oldName.c_str());
+		ofstream dest(buf, ios::binary);
+		dest << source.rdbuf();
+		source.close();
+		dest.close();
+		end = clock();
+		cout << "CLOCKS_PER_SEC " << CLOCKS_PER_SEC << "\n";
+		cout << "CPU-TIME START " << start << "\n";
+		cout << "CPU-TIME END " << end << "\n";
+		cout << "CPU-TIME END - START " << end - start << "\n";
+		cout << "TIME(SEC) " << static_cast<double>(end - start) / CLOCKS_PER_SEC << "\n";
+	}
+
+	void Dir(string HDD )//Показ файлов в каталоге
+	{
+		//Запросим ПУТЬ (например, папка Temp на диске C, запишется таким вот образом: c:\temp\)
+		//cout << "\nEnter full path (for example, C:\\): ";
+		//cin >> Name;
+		vector <string> FILES;
+		vector <string> FOLDERS;
+		char buf1[255];	strcpy_s(buf1, HDD.c_str());		
+		char mask[15] = "*.*";//Запросим маску файлов		
+		strcat_s(buf1, mask);//Соединив две строки, мы получим результат т.е. что хочет найти пользователь и где	
+		_finddata_t* fileinfo = new _finddata_t;//Объявление указателя fileinfo на структуру _finddata_t и создание динамического объекта структуры _finddata_t
+		long done = _findfirst(buf1, fileinfo);//Начинаем поиск	
+		int MayWeWork = done;//если done будет равняться -1, то поиск вести бесмысленно	
+		int count = 0;//Счетчик, содержит информацию о количестве найденых файлов.
+		while (MayWeWork != -1) {
+			count++;			
+			if (fileinfo->attrib==16 || fileinfo->attrib == 17 || fileinfo->attrib == 22 || fileinfo->attrib == 21 || fileinfo->attrib == 8208
+				|| fileinfo->attrib == 8210 || fileinfo->attrib == 8211 || fileinfo->attrib == 8214 || fileinfo->attrib == 9238) {//нашли папку
+				hConsole = GetStdHandle(STD_OUTPUT_HANDLE);	
+				 FOLDERS.push_back(fileinfo->name);				
+			}
+			else{
+				//FILES.push_back(fileinfo->name,fileinfo->size);				
+				cout << fileinfo->name << right << setw(60 - strlen(fileinfo->name)) << setfill('_') << " size, KB: " << fileinfo->size / 1024<<"\n";//<<endl
+				//cout<< setw(60 - strlen(fileinfo->name)- strlen(fileinfo->name)-strlen(a)) << "  KB \n";
+				//cout << "attrib " << fileinfo->attrib<< "\n";
+			}
+			MayWeWork = _findnext(done, fileinfo);//Пытаемся найти следующий файл из группы
+		}		
+		for (auto i : FOLDERS) {SetConsoleTextAttribute(hConsole, 2); cout <<"[" << i <<"]" << endl; SetConsoleTextAttribute(hConsole, 15); }
+		//for (auto j : FILES) { 	cout << j << setw(60 - j.length())<< setfill('_')  << "size, KB: " <<  "\n";	}
+		cout << "\nInformation: was found " << count;//Вывод сообщения о количестве найденных файлов.
+		cout << " file(s) in folder..." << buf1 << "\n\n";
+		_findclose(done);//Очистка памяти
+		delete fileinfo;		
+	}	
+	void FindDir()//Поиск файлов в каталоге
+	{
+		//Запросим ПУТЬ (например, папка Temp на диске C, запишется таким вот образом: c:\temp\)
+		cout << "\nEnter full path (for example, C:\\): ";
+		cin >> Name;
+		char buf1[255];	strcpy_s(buf1, Name.c_str());
+		char mask[15];//Запросим маску файлов
+		cout << "\nEnter mask (for example, *.* or *.txt):";
+		cin >> mask;
+		strcat_s(buf1, mask);//Соединив две строки, мы получим результат т.е. что хочет найти пользователь и где	
+		_finddata_t* fileinfo = new _finddata_t;//Объявление указателя fileinfo на структуру _finddata_t и создание динамического объекта структуры _finddata_t
+		long done = _findfirst(buf1, fileinfo);//Начинаем поиск	
+		int MayWeWork = done;//если done будет равняться -1, то поиск вести бесмысленно	
+		int count = 0;//Счетчик, содержит информацию о количестве найденых файлов.
+
+		while (MayWeWork != -1) {
+			count++;
+			cout << fileinfo->name << "\n\n";//Распечатали имя найденного файла		
+			MayWeWork = _findnext(done, fileinfo);//Пытаемся найти следующий файл из группы
+		}
+		cout << "\nInformation: was found " << count;//Вывод сообщения о количестве найденных файлов.
+		cout << " file(s) in folder..." << buf1 << "\n\n";
+		_findclose(done);//Очистка памяти
+		delete fileinfo;
+	}
+	/// //////////////////////////////	 
+	void RenameDirectory()//Переименовать существующую директорию
+	{		
+		cout << "Enter old name:";
+		cin >> oldName;//В одной переменной запомним существующее имя (oldName)	
+		char buf1[255];	strcpy_s(buf1, oldName.c_str());
+		cout << "Enter new name:";
+		cin >> Name;//А в другой новое имя(Name)
+		char buf[255];	strcpy_s(buf, Name.c_str());
+		if (rename(buf1, buf) != 0)//Произведем переименование и проверку результата
+			cout << "Error!\n Couldn't rename directory.\n\n";
+		else
+			cout << "Ok...\n\n";
+	}
+	void DeleteDirectory()//Удалить существующую директорию
+	{
+		cout << "Enter full path of deleting name:";
+		cin >> Name;//Получаем имя и путь к удаляемой директории	
+		char buf[255];	strcpy_s(buf, Name.c_str());
+		if (_rmdir(buf) == -1)//Удаляем директорию и проверяем результат
+			cout << "Error!\n Couldn't remove directory.\n";
+		else
+			cout << "Ok...\n";
+	}
+	void CreateDirectory()//Создать директорию
+	{		
+		cout << "Enter name:";
+		cin >> Name;//Получаем имя и путь к создаваемой директории	
+		char buf[255];	strcpy_s(buf, Name.c_str());
+		if (_mkdir(buf) == -1)//Создаем директорию и проверяем результат
+			cout << "Error!\n Couldn't create directory.\n";
+		else
+			cout << "Ok...\n";
+	}
+	//void SetoldName() { cout << "Enter old name:"; cin >> oldName; }
+	//void SetName() { cout << "Enter  name:"; cin >> Name; }	
+};
+void HDDcheck();
+int main(){
+	setlocale(LC_ALL, "rus");
+	HDDcheck();	
+	string HDD; 
+	FileManager FM;	
+	//FM.Dir(HDD);
+	cout << "Please, select preffer number...\n";	
+	char ch;
+	do {cout << "Choose HDD, input C:\\, for example \n";
+		cin >> HDD; HDD += ":\\";
+		
+		cout << "\n1 - Create file\n";
+		cout << "2 - Rename file\n";//Переименовать файл		
+		cout << "3 - Remove file\n";//Удалить		
+		cout << "4 - View some folder\n";//Просмотреть некоторую папку(каталог)	
+		cout << "5 - Rename folder\n";//Переименовать папку		
+		cout << "6 - Remove folder\n";//Удалить папку		
+		cout << "7 - Create folder\n";//Создать папку
+		cout << "8 - Serching folders and files\n";//Создать папку
+		cout << "0 - Exit\n\n";//Выход
+
+		cin >> ch;
+		switch (ch)//анализируем и вызываем соответствующую функцию
+		{
+
+		case'1': 
+			FM.CreateFile();
+			break;
+		case '2':
+			FM.RenameFile();
+			break;
+		case '3':
+			FM.DeleteFile();
+			break;
+		case '4':
+			FM.Dir(HDD);
+			break;
+		case '5':
+			FM.RenameDirectory();
+			break;
+		case '6':
+			FM.DeleteDirectory();
+			break;
+		case '7':
+			FM.CreateDirectory();
+			break;
+		case'8':	FM.FindDir();
+			break;
+		}
+	} while (ch != '0'); //Выход из программы
+}
+void HDDcheck() {
+	cout << "HDD in your system: \n";
+	int sz = GetLogicalDriveStrings(NULL, 0);
+	TCHAR* szLogicalDrives = new TCHAR[sz];
+	GetLogicalDriveStrings(sz, szLogicalDrives);
+
+	while (*szLogicalDrives)
+	{
+		TCHAR szDisk[80];
+		lstrcpy(szDisk, szLogicalDrives);
+		GetDriveType(szDisk);
+		UINT uDriveType = GetDriveType(szDisk);
+		if (uDriveType == DRIVE_FIXED)
+		{
+			wcout << szDisk << std::endl;
+			/*//определяем флаги
+			wcout << L"Системные флаги диска:\t";
+			DWORD dwSystemFlags;
+			GetVolumeInformation(szDisk, NULL, 0, NULL, 0, &dwSystemFlags, NULL, 0);
+			wcout << dwSystemFlags << L"\n";
+			//определяем объем
+			__int64 uliTotalBytes;
+			GetDiskFreeSpaceEx(szDisk, NULL, (PULARGE_INTEGER)&uliTotalBytes, NULL);
+			wcout << L"Объем диска:\t" << uliTotalBytes / (1024 * 1024) << L" МБ\n";
+			wcout << std::endl;*/
+		}
+		while (*szLogicalDrives) szLogicalDrives++;
+		szLogicalDrives++;
+	}
+}
